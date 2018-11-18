@@ -1,0 +1,158 @@
+// make sure you have all 4 libraries 
+
+#include <SPI.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+
+Adafruit_SSD1306 display;  // Create display
+
+
+
+#include <Fonts/TomThumb.h>  // Add a custom font
+
+
+
+
+
+
+
+#include "DHT.h"
+
+#define DHTPIN 2     
+
+#define DHTTYPE DHT22   
+
+DHT dht(DHTPIN, DHTTYPE);
+
+int lightSensor = A0;     // light sensor connected to Analog pin 0
+
+int moistureSensor = A1;    // moisture sensor
+                       
+int val0 = 0;           // variable to store the value read of the light sensor
+
+int val1 = 0;           // variable to store the value read of the light sensor
+
+int relayLn1 = 8;          // UV plantlight relay
+
+int relayLn2 = 9;           // Water pump relay
+
+void setup()
+{
+  delay(100);
+  Serial.begin(9600); //  setup serial
+  pinMode(8, OUTPUT);
+  pinMode(9, OUTPUT);
+
+        
+        dht.begin();
+      
+        display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // Initialize display with the I2C address of 0x3C
+       
+        display.clearDisplay();  // Clear the buffer
+      
+        display.setTextColor(WHITE);  // Set color of the text
+      
+        display.setRotation(0);  // Set orientation. Goes from 0, 1, 2 or 3
+      
+         // By default, long lines of text are set to automatically “wrap” back to the leftmost column.
+                                     // To override this behavior (so text will run off the right side of the display - useful for
+                                     // scrolling marquee effects), use setTextWrap(false). The normal wrapping behavior is restored
+                                     // with setTextWrap(true).
+      
+        display.dim(0);  //Set brightness (0 is maximun and 1 is a little dim)
+
+
+}
+
+void loop() // the meat and potatoes of this sketch
+{
+     
+  display.clearDisplay();
+  display.setFont(&TomThumb);  // Set a custom font
+  display.setTextSize(2); 
+  
+  val0 = analogRead(lightSensor);     // read the input pin
+
+  val1= analogRead(moistureSensor);
+    
+  float lightUnitVal = map(val0,0,1023,1000,0); // lightUnit is just unit I made to make reading analog signals easier
+
+  float moistureLvlVal = map(val1,0,1023,1000,0); // same as above
+
+  float lightUnit = ( lightUnitVal * .1);    // Divided 1000 by 10 to get accurate reading in percentage 
+
+  float moistureLvl = ( moistureLvlVal * .1); // same as above
+
+  
+  Serial.print("Brightness: ");                     //  *----------------------------------*
+  Serial.print(lightUnit);                          //  
+  Serial.print(" %");
+  Serial.print("   |   Moisture: ");                
+  Serial.print(moistureLvl);                        
+  Serial.print(" %"); 
+   
+  display.setCursor(0, 10);                        // Display and serial communications for Light and Moisture
+  
+  display.print("Light: ");
+  display.print(lightUnit);
+  display.println("%           ");
+  display.print("Moisture: ");
+  display.print(moistureLvl);
+  display.println("%");                             //*-----------------------------------------*
+  
+  
+    float h = dht.readHumidity();
+  // Read temperature as Celsius (the default)
+  float t = dht.readTemperature();
+  // Read temperature as Fahrenheit (isFahrenheit = true)
+  float f = dht.readTemperature(true);
+
+  
+  if (isnan(h) || isnan(t) || isnan(f)) 
+  {
+    Serial.println("Failed to read from DHT sensor!");
+    return;
+  }
+  
+  Serial.print("  |   Humidity: ");
+  Serial.print(h);
+  Serial.print(" %    ");
+  Serial.print("  |   Temperature: ");
+  Serial.print(f);
+  Serial.print(" *F");
+  Serial.println(" ");                         
+  
+  display.print("Humidity: ");
+  display.print(h);
+  display.println("%");
+  display.print("Temp.: ");
+  display.print(f);
+  display.println("F");  
+  
+  
+  display.display();
+  if  (lightUnit > 60.0)                // if else statement for UVlight relay (ln1)
+  {
+    digitalWrite(relayLn1, HIGH); 
+  }
+  else
+  {
+    digitalWrite(relayLn1, LOW);
+  }
+
+                                   
+  if (moistureLvl > 25.0)              // if else statement for Waterpump relay (ln2)
+  {
+    digitalWrite(relayLn2, HIGH);
+  }
+  else
+  {
+    digitalWrite(relayLn2, LOW);
+  }
+ 
+  Serial.println(" ");
+  
+  delay(175); // High delay for relays just incase caught in a quick changing state.
+  
+}
